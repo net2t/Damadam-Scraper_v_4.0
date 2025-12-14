@@ -71,3 +71,5 @@ Thumbs.db                    # Windows
 !.github/                    # Include workflows
 
 # ================================================================================
+chromedriver.exe
+credentials.json
