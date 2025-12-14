@@ -12,7 +12,40 @@
 credentials.json              # Google Service Account key
 *.key                         # Any private keys
 
-# ============ SESSION & CACHE ============
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables
+.env
+*.env
+secrets.json
+*.json
+
+# Logs
+*.log
+logs/
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Large files
+*.csv
+*.xlsx
+*.db
+*.sqlite3
 ## Local session and cache files
 damadam_cookies.pkl          # Browser session cookies
 __pycache__/                 # Python cache
