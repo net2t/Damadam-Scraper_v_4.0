@@ -1,0 +1,74 @@
+name: DamaDam ⇶ Scraper 💫
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      max_profiles:
+        description: "Max profiles to scrape (0 = all)"
+        required: false
+        default: "0"
+        type: string
+      batch_size:
+        description: "Batch size"
+        required: false
+        default: "20"
+        type: string
+  
+  # Scheduled trigger (every 6 hours)
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Checkout code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Setup Python
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # Install dependencies
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      # Create environment file from secrets
+      - name: Create .env from Secrets
+        run: |
+          cat > .env << 'EOF'
+          DAMADAM_USERNAME=${{ secrets.DAMADAM_USERNAME }}
+          DAMADAM_PASSWORD=${{ secrets.DAMADAM_PASSWORD }}
+          DAMADAM_USERNAME_2=${{ secrets.DAMADAM_USERNAME_2 }}
+          DAMADAM_PASSWORD_2=${{ secrets.DAMADAM_PASSWORD_2 }}
+          GOOGLE_SHEET_URL=${{ secrets.GOOGLE_SHEET_URL }}
+          GOOGLE_CREDENTIALS_JSON=${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          MAX_PROFILES_PER_RUN=${{ github.event.inputs.max_profiles || '0' }}
+          BATCH_SIZE=${{ github.event.inputs.batch_size || '20' }}
+          MIN_DELAY=0.5
+          MAX_DELAY=1.0
+          PAGE_LOAD_TIMEOUT=30
+          SHEET_WRITE_DELAY=1.0
+          EOF
+
+      # Run scraper
+      - name: Run DamaDam Scraper
+        run: python main.py
+        env:
+          GITHUB_ACTIONS: true
+          PYTHONUNBUFFERED: 1
+
+      # Notify on success
+      - name: Success Notification
+        if: success()
+        run: echo "✅ Scraper completed successfully"
+
+      # Notify on failure
+      - name: Failure Notification
+        if: failure()
+        run: echo "❌ Scraper failed - check logs"
