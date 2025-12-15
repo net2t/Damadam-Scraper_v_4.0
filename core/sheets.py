@@ -17,7 +17,9 @@ FEATURES:
 import os
 import json
 import time
+from datetime import datetime
 from pathlib import Path
+from typing import Optional
 from gspread import Spreadsheet, Worksheet
 from gspread.exceptions import WorksheetNotFound, APIError
 from google.oauth2.service_account import Credentials
@@ -25,21 +27,23 @@ from google.oauth2.service_account import Credentials
 try:
     from .config import (
         GOOGLE_SHEET_URL, GOOGLE_CRED_PATH, GOOGLE_CREDENTIALS_JSON,
-        SHEET_PROFILES, SHEET_RUNLIST, COLUMN_ORDER, COLUMN_TO_INDEX,
+        SHEET_PROFILES, SHEET_RUNLIST, SHEET_ONLINE_LOG,
+        COLUMN_ORDER, COLUMN_TO_INDEX,
         TARGET_STATUS_PENDING, TARGET_STATUS_DONE, TARGET_STATUS_ERROR,
         STATUS_VERIFIED, STATUS_UNVERIFIED, STATUS_BANNED,
         SHEET_WRITE_DELAY, SCRIPT_DIR
     )
-    from .logger import log_msg, print_error, get_timestamp_full
+    from .logger import log_msg, print_error, get_timestamp_full, get_pkt_time
 except ImportError:
     from core.config import (
         GOOGLE_SHEET_URL, GOOGLE_CRED_PATH, GOOGLE_CREDENTIALS_JSON,
-        SHEET_PROFILES, SHEET_RUNLIST, COLUMN_ORDER, COLUMN_TO_INDEX,
+        SHEET_PROFILES, SHEET_RUNLIST, SHEET_ONLINE_LOG,
+        COLUMN_ORDER, COLUMN_TO_INDEX,
         TARGET_STATUS_PENDING, TARGET_STATUS_DONE, TARGET_STATUS_ERROR,
         STATUS_VERIFIED, STATUS_UNVERIFIED, STATUS_BANNED,
         SHEET_WRITE_DELAY, SCRIPT_DIR
     )
-    from core.logger import log_msg, print_error, get_timestamp_full
+    from core.logger import log_msg, print_error, get_timestamp_full, get_pkt_time
 
 import gspread
 
@@ -143,13 +147,15 @@ class SheetsManager:
         # Get or create worksheets
         self.profiles_ws = self._get_or_create_sheet(SHEET_PROFILES)
         self.runlist_ws = self._get_or_create_sheet(SHEET_RUNLIST)
-        
+        self.online_log_ws = self._get_or_create_sheet(SHEET_ONLINE_LOG)
+
         # Try to get Tags sheet (optional)
         self.tags_ws = self._get_sheet_if_exists("Tags")
         
         # Initialize headers
         self._init_profiles_headers()
         self._init_runlist_headers()
+        self._init_online_log_headers()
         
         # Load tags mapping from Tags sheet
         self.tags_mapping = {}
@@ -232,6 +238,21 @@ class SheetsManager:
                 time.sleep(SHEET_WRITE_DELAY)
         except Exception as e:
             log_msg(f"[ERROR] RunList header init failed: {e}")
+
+
+    def _init_online_log_headers(self):
+        """Ensure OnlineLog sheet has headers for presence tracking."""
+        try:
+            rows = self.online_log_ws.get_all_values()
+            headers = ["DATE", "TIME", "NICKNAME", "DATE/TIME"]
+
+            if not rows or not rows[0] or all(not c for c in rows[0]):
+                log_msg("[INFO] Initializing OnlineLog sheet headers...")
+                self.online_log_ws.append_row(headers)
+                time.sleep(SHEET_WRITE_DELAY)
+        except Exception as e:
+            log_msg(f"[ERROR] OnlineLog header init failed: {e}")
+
     
     
     def _load_existing_profiles(self):
@@ -483,6 +504,22 @@ class SheetsManager:
         except Exception as e:
             log_msg(f"[ERROR] Failed to append profile: {e}")
             return {'status': 'error', 'changed_fields': [], 'message': str(e)}
+
+
+    def log_online_presence(self, nickname: str, timestamp: Optional[datetime] = None):
+        """Append a presence entry for an online nickname."""
+        try:
+            ts = timestamp or get_pkt_time()
+            date_str = ts.strftime("%Y-%m-%d")
+            time_str = ts.strftime("%H:%M:%S")
+            combined = ts.strftime("%d-%b-%y %I:%M %p")
+            self.online_log_ws.append_row([date_str, time_str, nickname, combined])
+            time.sleep(SHEET_WRITE_DELAY)
+            return True
+        except Exception as e:
+            log_msg(f"[ERROR] Failed to log online nickname '{nickname}': {e}")
+            return False
+
     
     
     def add_note_to_cell(self, row: int, col: int, note_text: str):
@@ -675,6 +712,36 @@ class SheetsManager:
                         }
                     })
                     
+                elif ws.title == SHEET_ONLINE_LOG:
+                    column_widths = [100, 80, 180, 140]
+                    for i, width in enumerate(column_widths):
+                        reqs.append({
+                            "updateDimensionProperties": {
+                                "range": {
+                                    "sheetId": sheet_id,
+                                    "dimension": "COLUMNS",
+                                    "startIndex": i,
+                                    "endIndex": i + 1
+                                },
+                                "properties": {"pixelSize": width},
+                                "fields": "pixelSize"
+                            }
+                        })
+
+                    reqs.append({
+                        "repeatCell": {
+                            "range": {"sheetId": sheet_id},
+                            "cell": {
+                                "userEnteredFormat": {
+                                    "verticalAlignment": "MIDDLE",
+                                    "horizontalAlignment": "CENTER",
+                                    "wrapStrategy": "WRAP"
+                                }
+                            },
+                            "fields": "userEnteredFormat.verticalAlignment,userEnteredFormat.horizontalAlignment,userEnteredFormat.wrapStrategy"
+                        }
+                    })
+
                 else:
                     # Default formatting for other sheets
                     reqs.append({
