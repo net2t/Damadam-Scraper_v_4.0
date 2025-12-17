@@ -19,8 +19,6 @@ if env_path.exists():
 else:
     print(f"[DEBUG] No .env file found at: {env_path}")
 
-# ==================== CORE SETTINGS ====================
-
 class Config:
     """Central configuration class"""
     
@@ -44,7 +42,7 @@ class Config:
     SHEET_WRITE_DELAY = float(os.getenv('SHEET_WRITE_DELAY', '1.0'))
     
     # Online Mode Settings
-    ONLINE_MODE_DELAY = int(os.getenv('ONLINE_MODE_DELAY', '900'))  # 15 minutes = 900 seconds
+    ONLINE_MODE_DELAY = int(os.getenv('ONLINE_MODE_DELAY', '900'))
     
     # Paths
     SCRIPT_DIR = SCRIPT_DIR
@@ -65,7 +63,7 @@ class Config:
     SHEET_TARGET = "Target"
     SHEET_DASHBOARD = "Dashboard"
     SHEET_TAGS = "Tags"
-    SHEET_ONLINE_LOG = "OnlineLog"  # NEW: Track online users timing
+    SHEET_ONLINE_LOG = "OnlineLog"
     
     # Column Configuration
     COLUMN_ORDER = [
@@ -100,7 +98,6 @@ class Config:
         print("CONFIGURATION VALIDATION")
         print("=" * 70)
         
-        # Check credentials path
         cred_path = cls._get_credentials_path()
         print(f"📍 Script Directory: {cls.SCRIPT_DIR}")
         print(f"📍 Credentials Path: {cred_path}")
@@ -110,24 +107,20 @@ class Config:
             file_exists = Path(cred_path).exists() if cred_path else False
             print(f"📁 File exists: {file_exists}")
         
-        # Username
         if not cls.DAMADAM_USERNAME:
             errors.append("❌ DAMADAM_USERNAME is required")
         else:
             masked = cls.DAMADAM_USERNAME[:3] + "***" if len(cls.DAMADAM_USERNAME) > 3 else "***"
             print(f"✅ DamaDam Username: {masked}")
         
-        # Password
         if not cls.DAMADAM_PASSWORD:
             errors.append("❌ DAMADAM_PASSWORD is required")
         
-        # Google Sheet URL
         if not cls.GOOGLE_SHEET_URL:
             errors.append("❌ GOOGLE_SHEET_URL is required")
         else:
             print(f"✅ Google Sheet URL: Present")
         
-        # Google Credentials
         has_json = bool(cls.GOOGLE_CREDENTIALS_JSON)
         has_file = cred_path and Path(cred_path).exists()
         
@@ -168,7 +161,6 @@ class Config:
         """Public method to get credentials path"""
         return cls._get_credentials_path()
 
-# Validate on import (but only once)
 if not hasattr(Config, '_validated'):
     Config.validate()
     Config._validated = True
